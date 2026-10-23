@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema Inteligente de Processamento de Pedidos — Materiais Elétricos</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <!-- BARRA LATERAL (SIDEBAR) -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-text">
+        <h1>Elétrica Brasil</h1>
+        <span>Processamento Inteligente</span>
+      </div>
+    </div>
+
+    <ul class="nav-menu">
+      <li class="nav-item active">
+        <a href="#dashboard">
+          <span class="nav-icon">📊</span>
+          <span>Visão Geral</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="#orders">
+          <span class="nav-icon">📋</span>
+          <span>Pedidos</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="#review">
+          <span class="nav-icon">🔍</span>
+          <span>Revisão Humana</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="#catalog">
+          <span class="nav-icon">📦</span>
+          <span>Catálogo de Materiais</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="#quotations">
+          <span class="nav-icon">💰</span>
+          <span>Cotações Fornecedores</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="#integrations">
+          <span class="nav-icon">🔌</span>
+          <span>Conectores & Canais</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="#reports">
+          <span class="nav-icon">📈</span>
+          <span>Relatórios & LGPD</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div>
+        <strong>Modo Produção Local</strong>
+        <div style="font-size: 11px; color: #64748b;">v1.0.0 (Relacional)</div>
+      </div>
+      <span title="Status Seguro">🔒</span>
+    </div>
+  </aside>
+
+  <!-- ÁREA PRINCIPAL -->
+  <main class="main-layout">
+    <!-- BARRA SUPERIOR -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <h2 id="pageTitle" class="page-title">Visão Geral do Atendimento</h2>
+        <div class="channel-badges">
+          <span class="status-indicator status-active" title="WhatsApp Business com Coexistência Meta">
+            <span class="status-dot"></span> WhatsApp Coex
+          </span>
+          <span class="status-indicator status-active" title="E-mail Comercial IMAP Ativo">
+            <span class="status-dot"></span> E-mail IMAP
+          </span>
+          <span class="status-indicator status-limited" title="WhatsApp Pessoal: Entrada assistida (Sem API oficial)">
+            <span class="status-dot"></span> WA Pessoal
+          </span>
+        </div>
+      </div>
+
+      <div class="top-bar-right">
+        <button class="btn btn-warning btn-sm" onclick="App.simulateWhatsAppLive()" title="Simula a chegada de um pedido real de WhatsApp via n8n em tempo real">⚡ Simular WhatsApp ao Vivo</button>
+        <button class="btn btn-primary btn-sm" onclick="App.openModal('manualOrderModal')">+ Novo Pedido</button>
+        <button class="btn btn-secondary btn-sm" onclick="App.openModal('uploadModal')">📤 Upload Mídia</button>
+        <div class="user-profile">
+          <div class="user-avatar">CV</div>
+          <div>
+            <div>Carlos Vendedor</div>
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: normal;">Atendimento & Vendas</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTAINER DE CONTEÚDO DINÂMICO -->
+    <section id="contentContainer" class="content-area">
+      <!-- Vistas injetadas dinamicamente pelo Router -->
+    </section>
+  </main>
+
+  <!-- MODAL: NOVO PEDIDO MANUAL -->
+  <div id="manualOrderModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Novo Pedido de Materiais (Entrada Manual)</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="manualOrderForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Nome do Cliente / Eletricista</label>
+            <input type="text" id="manualClientName" class="form-control" placeholder="Ex: Roberto Silva (Eng. Obra)" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Telefone / WhatsApp</label>
+            <input type="text" id="manualClientPhone" class="form-control" placeholder="+55 11 98888-0000" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Texto da Solicitação / Lista de Materiais</label>
+            <textarea id="manualText" class="form-control" rows="5" placeholder="Digite ou cole aqui a lista de materiais..." required></textarea>
+            <span style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px; display: block;">
+              O motor de IA multimodal interpretará jargões (ex: "fio de duas e meia", "passa-fio", "disjuntor de 20").
+            </span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Processar com IA</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: UPLOAD DE MÍDIA / ÁUDIO / FOTO -->
+  <div id="uploadModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Upload de Mídia / Arquivos de Contingência</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="uploadOrderForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Nome do Cliente (Opcional)</label>
+            <input type="text" id="uploadClientName" class="form-control" placeholder="Ex: Marcos Instalador" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Telefone de Contato (Opcional)</label>
+            <input type="text" id="uploadClientPhone" class="form-control" placeholder="+55 11 97777-1111" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Arquivos (Áudios, Fotos de Listas, PDFs)</label>
+            <input type="file" id="uploadFileInput" class="form-control" multiple accept="image/*,audio/*,application/pdf" required />
+            <span style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px; display: block;">
+              Formatos aceitos: Áudios (.ogg, .mp3, .wav), Imagens (.jpg, .png) de bilhetes manuscritos e documentos PDF.
+            </span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Observações Adicionais</label>
+            <textarea id="uploadNotes" class="form-control" rows="2" placeholder="Informações complementares sobre a solicitação..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Enviar & Analisar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- SCRIPTS SPA -->
+  <script src="js/api.js"></script>
+  <script src="js/views/dashboard.js"></script>
+  <script src="js/views/orders.js"></script>
+  <script src="js/views/review.js"></script>
+  <script src="js/views/catalog.js"></script>
+  <script src="js/views/quotations.js"></script>
+  <script src="js/views/integrations.js"></script>
+  <script src="js/views/reports.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

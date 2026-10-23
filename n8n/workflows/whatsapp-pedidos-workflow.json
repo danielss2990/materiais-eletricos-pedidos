@@ -1,0 +1,138 @@
+{
+  "name": "WhatsApp Business - Integração Pedidos Materiais Elétricos",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook-meta",
+      "name": "Webhook WhatsApp (Meta)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "whatsapp-meta-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrai metadados e conteúdo da mensagem da Meta Cloud API\nconst body = $json.body || $json;\n\nif (!body.entry || !body.entry[0] || !body.entry[0].changes) {\n  return [{ json: { isValid: false, reason: 'Payload sem entry' } }];\n}\n\nconst change = body.entry[0].changes[0];\nconst value = change.value;\n\nif (!value.messages || value.messages.length === 0) {\n  // Evento de status de entrega ou echo\n  if (value.message_echoes && value.message_echoes.length > 0) {\n    return [{\n      json: {\n        isValid: true,\n        type: 'ECHO',\n        echo: value.message_echoes[0]\n      }\n    }];\n  }\n  return [{ json: { isValid: false, reason: 'Sem mensagens novas' } }];\n}\n\nconst msg = value.messages[0];\nconst contact = (value.contacts && value.contacts[0]) || {};\n\nlet textContent = '';\nlet messageType = msg.type || 'text';\nlet mediaId = null;\nlet mimeType = null;\n\nif (msg.type === 'text') {\n  textContent = msg.text.body;\n} else if (msg.type === 'image') {\n  textContent = msg.image.caption || '[Foto de Lista / Peça Elétrica]';\n  mediaId = msg.image.id;\n  mimeType = msg.image.mime_type;\n} else if (msg.type === 'audio' || msg.type === 'voice') {\n  textContent = '[Áudio / Mensagem de Voz de Pedido]';\n  mediaId = msg.audio ? msg.audio.id : (msg.voice ? msg.voice.id : null);\n  mimeType = 'audio/ogg';\n} else if (msg.type === 'document') {\n  textContent = msg.document.caption || msg.document.filename || '[Documento de Pedido]';\n  mediaId = msg.document.id;\n  mimeType = msg.document.mime_type;\n}\n\nreturn [{\n  json: {\n    isValid: true,\n    externalId: msg.id,\n    senderPhone: msg.from,\n    senderName: contact.profile ? contact.profile.name : `Cliente (${msg.from})`,\n    messageType: messageType,\n    textContent: textContent,\n    mediaId: mediaId,\n    mimeType: mimeType,\n    timestamp: msg.timestamp,\n    rawPayload: msg\n  }\n}];"
+      },
+      "id": "node-parse-message",
+      "name": "Normalizar Mensagem WhatsApp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isValid }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node-filter-valid",
+      "name": "Mensagem Válida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/webhooks/n8n/whatsapp",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Orchestrator",
+              "value": "n8n-workflow-v1"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"externalId\": \"{{ $json.externalId }}\",\n  \"senderPhone\": \"{{ $json.senderPhone }}\",\n  \"senderName\": \"{{ $json.senderName }}\",\n  \"messageType\": \"{{ $json.messageType }}\",\n  \"text\": \"{{ $json.textContent }}\",\n  \"timestamp\": \"{{ $json.timestamp }}\",\n  \"mediaId\": \"{{ $json.mediaId }}\",\n  \"mimeType\": \"{{ $json.mimeType }}\"\n}",
+        "options": {}
+      },
+      "id": "node-send-to-backend",
+      "name": "Enviar para Sistema de Pedidos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"SUCCESS\", \"message\": \"Processado via n8n e integrado ao sistema de pedidos.\" }",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-meta",
+      "name": "Responder 200 OK para Meta",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1140, 200]
+    }
+  ],
+  "connections": {
+    "Webhook WhatsApp (Meta)": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Mensagem WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Mensagem WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Mensagem Válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem Válida?": {
+      "main": [
+        [
+          {
+            "node": "Enviar para Sistema de Pedidos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar para Sistema de Pedidos": {
+      "main": [
+        [
+          {
+            "node": "Responder 200 OK para Meta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

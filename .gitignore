@@ -1,0 +1,30 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Banco de dados SQLite (dados locais — não commitar)
+backend/data/*.sqlite
+backend/data/*.db
+
+# Variáveis de ambiente e segredos
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+
+# Pasta de build (se existir)
+dist/
+build/
