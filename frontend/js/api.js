@@ -3,21 +3,10 @@
 const API_BASE = '/api';
 
 const api = {
-  getToken() {
-    return localStorage.getItem('auth_token') || '';
-  },
-
-  setToken(token) {
-    if (token) localStorage.setItem('auth_token', token);
-    else localStorage.removeItem('auth_token');
-  },
-
+  // A sessão é mantida em cookie HttpOnly definido pelo servidor no login,
+  // então o token nunca fica acessível a scripts da página.
   async request(endpoint, options = {}) {
     const headers = options.headers || {};
-    const token = this.getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
 
     if (!(options.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
@@ -25,14 +14,13 @@ const api = {
 
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
-      headers
+      headers,
+      credentials: 'same-origin'
     });
 
-    if (response.status === 401) {
-      // Se não autenticado e não for rota de login
-      if (!endpoint.startsWith('/auth/login')) {
-        console.warn('Sessão expirada ou não autenticado.');
-      }
+    if (response.status === 401 && !endpoint.startsWith('/auth/')) {
+      // Sessão expirada ou ausente: pede login novamente
+      if (typeof App !== 'undefined') App.showLogin();
     }
 
     if (!response.ok) {
@@ -60,6 +48,10 @@ const api = {
       method: 'POST',
       body: JSON.stringify({ username, password })
     });
+  },
+
+  logout() {
+    return this.request('/auth/logout', { method: 'POST' });
   },
 
   getMe() {

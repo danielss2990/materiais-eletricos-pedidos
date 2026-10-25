@@ -4,6 +4,7 @@ const path = require('node:path');
 const config = require('../../config');
 const db = require('../../database/connection');
 const taskQueue = require('../queue/taskQueue');
+const { safeEqual, safeFilename, resolveInside } = require('../../utils/security');
 
 /**
  * Conector oficial da WhatsApp Business Platform & Cloud API com Coexistência.
@@ -13,7 +14,8 @@ class WhatsAppCloudApiConnector {
    * Validação de handshake do Webhook (GET).
    */
   verifyWebhook(mode, verifyToken, challenge) {
-    if (mode === 'subscribe' && verifyToken === config.whatsapp.verifyToken) {
+    if (!config.whatsapp.verifyToken) return null; // Sem token configurado, nenhum handshake é aceito
+    if (mode === 'subscribe' && safeEqual(String(verifyToken || ''), config.whatsapp.verifyToken)) {
       return challenge;
     }
     return null;
@@ -24,25 +26,17 @@ class WhatsAppCloudApiConnector {
    * Meta envia no cabeçalho X-Hub-Signature-256: "sha256=<hash>"
    */
   verifySignature(rawBody, signatureHeader) {
-    if (!config.whatsapp.appSecret) return true; // Se não configurado em dev, permite
-    if (!signatureHeader) return false;
+    // Sem App Secret configurado não há como validar a origem: rejeita sempre
+    if (!config.whatsapp.appSecret) return false;
+    if (!signatureHeader || !signatureHeader.startsWith('sha256=')) return false;
 
-    const parts = signatureHeader.split('=');
-    const signature = parts[1];
-    if (!signature) return false;
-
+    const signature = signatureHeader.slice('sha256='.length);
     const expectedSignature = crypto
       .createHmac('sha256', config.whatsapp.appSecret)
       .update(rawBody)
       .digest('hex');
 
-    const sigBuf = Buffer.from(signature, 'utf8');
-    const expBuf = Buffer.from(expectedSignature, 'utf8');
-    if (sigBuf.length !== expBuf.length) {
-      return false;
-    }
-
-    return crypto.timingSafeEqual(sigBuf, expBuf);
+    return safeEqual(signature, expectedSignature);
   }
 
   /**
@@ -120,7 +114,7 @@ class WhatsAppCloudApiConnector {
       attachmentsToSave.push({
         id: msg.document.id,
         mimeType: msg.document.mime_type || 'application/pdf',
-        filename: msg.document.filename || `documento_${Date.now()}.pdf`
+        filename: safeFilename(msg.document.filename, `documento_${Date.now()}.pdf`)
       });
     }
 
@@ -162,7 +156,7 @@ class WhatsAppCloudApiConnector {
       // Trata anexos
       for (const att of attachmentsToSave) {
         const attId = `att_${crypto.randomBytes(6).toString('hex')}`;
-        const targetPath = path.join(config.storage.attachmentsDir, `${attId}_${att.filename}`);
+        const targetPath = resolveInside(config.storage.attachmentsDir, `${attId}_${att.filename}`);
 
         // Salva mock/arquivo seguro
         fs.writeFileSync(targetPath, `[Conteúdo binário de mídia Meta MediaId: ${att.id}]`);

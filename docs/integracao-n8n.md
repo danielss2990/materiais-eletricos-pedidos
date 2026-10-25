@@ -99,7 +99,7 @@ $n8nPayload = @{
   timestamp    = [string][int][double]::Parse((Get-Date -UFormat %s))
 } | ConvertTo-Json
 
-Invoke-RestMethod -Uri "http://localhost:3000/api/webhooks/n8n/whatsapp" -Method Post -Body $n8nPayload -ContentType "application/json"
+Invoke-RestMethod -Uri "http://localhost:3000/api/webhooks/n8n/whatsapp" -Method Post -Body $n8nPayload -ContentType "application/json" -Headers @{ "X-Webhook-Token" = $env:WEBHOOK_TOKEN }
 ```
 
 ### Resposta esperada do sistema:

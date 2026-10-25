@@ -17,6 +17,13 @@ node src/server.js
 ```
 A aplicação estará disponível em: **`http://localhost:3000`**
 
+O painel exige login. Os usuários de demonstração criados pelo seed (`npm run seed`) usam senhas fracas e conhecidas: troque-as antes de qualquer uso real.
+
+### Segurança dos webhooks
+Copie `backend/.env.example` para `backend/.env` e defina:
+- `WEBHOOK_TOKEN`: exigido no cabeçalho `X-Webhook-Token` por `/api/webhooks/email` e `/api/webhooks/n8n/whatsapp`. Sem ele, só usuários logados podem chamar esses endpoints.
+- `WHATSAPP_WEBHOOK_VERIFY_TOKEN` e `WHATSAPP_APP_SECRET`: sem eles, o webhook da Meta rejeita todas as chamadas.
+
 ### 3. Execução da Suíte de Testes Automatizados
 ```bash
 cd c:\Users\gusta\projetos\materiais-eletricos-pedidos

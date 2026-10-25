@@ -27,7 +27,7 @@ const ReviewView = {
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <div style="display: flex; align-items: center; gap: 12px;">
             <button class="btn btn-secondary btn-sm" onclick="App.navigateTo('orders')">← Voltar</button>
-            <h2 style="font-size: 18px; font-weight: 700;">Revisão de Pedido: ${order.order_code}</h2>
+            <h2 style="font-size: 18px; font-weight: 700;">Revisão de Pedido: ${escapeHtml(order.order_code)}</h2>
             ${renderChannelBadge(order.entry_method)}
             ${renderStatusBadge(order.status)}
           </div>
@@ -42,7 +42,7 @@ const ReviewView = {
           <div class="split-left">
             <div class="split-header">
               <span class="split-title">Conteúdo Original do Cliente</span>
-              <span style="font-size: 12px; color: var(--text-muted);">${order.client_name || 'Cliente Balcão'} (${order.client_phone || 'Sem telefone'})</span>
+              <span style="font-size: 12px; color: var(--text-muted);">${escapeHtml(order.client_name || 'Cliente Balcão')} (${escapeHtml(order.client_phone || 'Sem telefone')})</span>
             </div>
             <div class="split-content">
               <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
@@ -57,17 +57,17 @@ const ReviewView = {
                 ${attachments.map(att => `
                   <div class="media-viewer">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                      <span style="font-size: 13px; font-weight: 600;">📎 ${att.filename}</span>
+                      <span style="font-size: 13px; font-weight: 600;">📎 ${escapeHtml(att.filename)}</span>
                       <a href="/api/files/${att.id}" target="_blank" class="btn btn-secondary btn-sm">Baixar / Ver</a>
                     </div>
                     ${att.mime_type.startsWith('audio/') ? `
                       <audio controls style="width: 100%; margin-top: 6px;">
-                        <source src="/api/files/${att.id}" type="${att.mime_type}">
+                        <source src="/api/files/${att.id}" type="${escapeHtml(att.mime_type)}">
                         Seu navegador não suporta reprodução de áudio.
                       </audio>
                     ` : ''}
                     ${att.mime_type.startsWith('image/') ? `
-                      <img src="/api/files/${att.id}" alt="${att.filename}" style="max-height: 250px; object-fit: contain; margin-top: 6px;" />
+                      <img src="/api/files/${att.id}" alt="${escapeHtml(att.filename)}" style="max-height: 250px; object-fit: contain; margin-top: 6px;" />
                     ` : ''}
                   </div>
                 `).join('')}
@@ -143,7 +143,7 @@ const ReviewView = {
                       <option value="">-- Não associado ao catálogo --</option>
                       ${catalogProducts.map(cp => `
                         <option value="${cp.id}" ${(item.matched_product_id === cp.id || (!item.matched_product_id && item.suggested_product_id === cp.id)) ? 'selected' : ''}>
-                          [${cp.sku}] ${cp.name} (${cp.category})
+                          [${escapeHtml(cp.sku)}] ${escapeHtml(cp.name)} (${escapeHtml(cp.category)})
                         </option>
                       `).join('')}
                     </select>
@@ -169,7 +169,7 @@ const ReviewView = {
         </div>
       `;
     } catch (err) {
-      container.innerHTML = `<div class="card" style="color: var(--danger);">Erro ao carregar tela de revisão: ${err.message}</div>`;
+      container.innerHTML = `<div class="card" style="color: var(--danger);">Erro ao carregar tela de revisão: ${escapeHtml(err.message)}</div>`;
     }
   },
 

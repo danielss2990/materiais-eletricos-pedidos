@@ -3,22 +3,77 @@ const App = {
   currentView: 'dashboard',
   currentParam: null,
 
-  init() {
+  async init() {
     this.bindEvents();
-    this.handleRoute();
+    try {
+      const { user } = await api.getMe();
+      this.setUser(user);
+      this.handleRoute();
+    } catch {
+      this.showLogin();
+    }
+  },
+
+  setUser(user) {
+    const roles = {
+      ADMIN: 'Administrador',
+      ATTENDANT: 'Atendimento & Vendas',
+      QUOTATION_ANALYST: 'Cotações'
+    };
+    const name = user.fullName || user.username || '';
+    const initials = name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+    document.getElementById('userAvatar').innerText = initials || '--';
+    document.getElementById('userName').innerText = name;
+    document.getElementById('userRole').innerText = roles[user.role] || user.role || '';
+  },
+
+  showLogin() {
+    document.getElementById('loginError').innerText = '';
+    this.openModal('loginModal');
+    document.getElementById('loginUsername').focus();
+  },
+
+  async logout() {
+    try {
+      await api.logout();
+    } catch {
+      // Ignora: a sessão já pode ter expirado
+    }
+    document.getElementById('contentContainer').innerHTML = '';
+    this.showLogin();
   },
 
   bindEvents() {
     window.addEventListener('hashchange', () => this.handleRoute());
 
-    // Fechar modais ao clicar no overlay ou no botão fechar
+    // Fechar modais ao clicar no overlay ou no botão fechar (exceto o login, que é obrigatório)
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
       overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
+        if (e.target === overlay && overlay.id !== 'loginModal') {
           this.closeAllModals();
         }
       });
     });
+
+    // Form de Login
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+
+        try {
+          const { user } = await api.login(username, password);
+          loginForm.reset();
+          document.getElementById('loginModal').classList.remove('active');
+          this.setUser(user);
+          this.handleRoute();
+        } catch (err) {
+          document.getElementById('loginError').innerText = err.message;
+        }
+      });
+    }
 
     document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
       btn.addEventListener('click', () => this.closeAllModals());

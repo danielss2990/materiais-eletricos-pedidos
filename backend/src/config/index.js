@@ -36,9 +36,16 @@ const config = {
     maxSizeMB: parseInt(process.env.MAX_ATTACHMENT_SIZE_MB, 10) || 50
   },
 
+  // Token compartilhado exigido no cabeçalho X-Webhook-Token pelos webhooks de e-mail e n8n.
+  // Sem valor configurado, esses webhooks só aceitam chamadas de usuários autenticados.
+  webhooks: {
+    token: process.env.WEBHOOK_TOKEN || ''
+  },
+
+  // Sem valores padrão: segredos conhecidos publicamente permitiriam forjar webhooks da Meta.
   whatsapp: {
-    verifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || 'token_verificacao_meta_webhook_2026',
-    appSecret: process.env.WHATSAPP_APP_SECRET || 'app_secret_meta_2026',
+    verifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || '',
+    appSecret: process.env.WHATSAPP_APP_SECRET || '',
     apiToken: process.env.WHATSAPP_API_TOKEN || '',
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
     businessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || ''

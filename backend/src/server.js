@@ -37,6 +37,10 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // ----------------------------------------------------------------------------
 // STREAMING SEGURO DE ANEXOS PRIVADOS (Fora do web root público)
 // ----------------------------------------------------------------------------
+const INLINE_SAFE_MIME = new Set([
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'application/pdf'
+]);
+
 app.get('/api/files/:id', authMiddleware(), (req, res) => {
   const { id } = req.params;
   const attachment = db.get('SELECT * FROM attachments WHERE id = ?', [id]);
@@ -45,8 +49,17 @@ app.get('/api/files/:id', authMiddleware(), (req, res) => {
     return res.status(404).json({ error: 'Arquivo não encontrado ou acesso não autorizado.' });
   }
 
-  res.setHeader('Content-Type', attachment.mime_type || 'application/octet-stream');
-  res.setHeader('Content-Disposition', `inline; filename="${attachment.filename}"`);
+  // Só exibe inline tipos que o navegador não executa; o resto vira download.
+  // O mime_type vem do remetente, então HTML/SVG/XML nunca são servidos com o tipo original.
+  const mime = String(attachment.mime_type || '').toLowerCase();
+  const isInlineSafe = INLINE_SAFE_MIME.has(mime) || mime.startsWith('audio/');
+  const filename = String(attachment.filename || 'anexo');
+  const asciiName = filename.replace(/[^\x20-\x7E]+/g, '_').replace(/["\\]/g, '_');
+
+  res.setHeader('Content-Type', isInlineSafe ? mime : 'application/octet-stream');
+  res.setHeader('Content-Disposition', `${isInlineSafe ? 'inline' : 'attachment'}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
   const stream = fs.createReadStream(attachment.file_path);
   stream.pipe(res);
 });

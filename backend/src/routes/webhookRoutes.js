@@ -1,8 +1,30 @@
 const express = require('express');
 const whatsappConnector = require('../services/connectors/whatsappCloudApi');
 const emailConnector = require('../services/connectors/emailConnector');
+const config = require('../config');
+const { getSession } = require('../middlewares/authMiddleware');
+const { safeEqual } = require('../utils/security');
 
 const router = express.Router();
+
+/**
+ * Autenticação dos webhooks internos (e-mail e n8n): exige o cabeçalho X-Webhook-Token
+ * igual a WEBHOOK_TOKEN, ou uma sessão de usuário válida (usada pela simulação no painel).
+ */
+function webhookAuth(req, res, next) {
+  const provided = req.headers['x-webhook-token'];
+  if (config.webhooks.token && provided && safeEqual(String(provided), config.webhooks.token)) {
+    return next();
+  }
+
+  const session = getSession(req);
+  if (session) {
+    req.user = session;
+    return next();
+  }
+
+  return res.status(401).json({ error: 'Webhook não autorizado: informe um X-Webhook-Token válido.' });
+}
 
 // ----------------------------------------------------------------------------
 // WEBHOOK WHATSAPP CLOUD API (META BUSINESS PLATFORM)
@@ -52,7 +74,7 @@ router.post('/whatsapp', async (req, res) => {
 // ----------------------------------------------------------------------------
 
 // POST /api/webhooks/email - Ingestão de mensagens de e-mail recebidas
-router.post('/email', async (req, res) => {
+router.post('/email', webhookAuth, async (req, res) => {
   const { messageId, from, fromName, to, subject, date, bodyText, attachments } = req.body;
 
   if (!from || (!bodyText && (!attachments || attachments.length === 0))) {
@@ -83,7 +105,7 @@ router.post('/email', async (req, res) => {
 // ----------------------------------------------------------------------------
 
 // POST /api/webhooks/n8n/whatsapp - Recebe mensagens do WhatsApp processadas pelo n8n
-router.post('/n8n/whatsapp', async (req, res) => {
+router.post('/n8n/whatsapp', webhookAuth, async (req, res) => {
   const crypto = require('node:crypto');
   const db = require('../database/connection');
   const taskQueue = require('../services/queue/taskQueue');
