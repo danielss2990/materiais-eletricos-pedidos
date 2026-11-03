@@ -48,7 +48,7 @@ const IntegrationsView = {
             <div style="padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
               <span style="font-size: 11px; color: var(--text-muted);">Porta n8n padrão: 5678</span>
               <div style="display: flex; gap: 8px;">
-                <button class="btn btn-secondary btn-sm" onclick="alert('Abra o n8n em http://localhost:5678, vá em Workflows > Import from File e selecione o arquivo n8n/workflows/whatsapp-pedidos-workflow.json!')">
+                <button class="btn btn-secondary btn-sm" onclick="alert('Abra o n8n em http://localhost:5678, vá em Workflows > Import from File e selecione o arquivo n8n/workflows/whatsapp-pedidos-workflow.json. Depois preencha os nós Configuração (o backendWebhookSecret deve ser igual ao N8N_WEBHOOK_SECRET do backend/.env) e ative o fluxo. Guia completo: docs/integracao-n8n.md')">
                   Como Importar
                 </button>
               </div>

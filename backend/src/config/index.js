@@ -48,7 +48,10 @@ const config = {
     appSecret: process.env.WHATSAPP_APP_SECRET || '',
     apiToken: process.env.WHATSAPP_API_TOKEN || '',
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
-    businessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || ''
+    businessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || '',
+    graphApiVersion: process.env.WHATSAPP_GRAPH_API_VERSION || 'v21.0',
+    // Segredo compartilhado entre o n8n e o backend (cabeçalho X-Webhook-Secret)
+    n8nWebhookSecret: process.env.N8N_WEBHOOK_SECRET || ''
   },
 
   email: {

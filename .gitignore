@@ -6,6 +6,9 @@ yarn-error.log*
 
 # Banco de dados SQLite (dados locais — não commitar)
 backend/data/*.sqlite
+backend/data/*.sqlite-shm
+backend/data/*.sqlite-wal
+backend/data/*.sqlite-journal
 backend/data/*.db
 
 # Variáveis de ambiente e segredos

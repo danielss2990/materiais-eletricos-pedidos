@@ -242,9 +242,8 @@ const App = {
     const sampleText = 'Carlos, boa tarde! Separa urgente pra nossa obra:\n- 2 rolos de fio de duas e meia azul\n- 4 disjuntores de 20 monopolar\n- 1 passa-fio\n- 10 caixinhas 4x2';
 
     try {
-      const response = await fetch('/api/webhooks/n8n/whatsapp', {
+      const res = await api.request('/integrations/n8n/simulate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           externalId: `wam_live_${Date.now()}`,
           senderPhone: '+55 11 98888-1234',
@@ -255,7 +254,6 @@ const App = {
         })
       });
 
-      const res = await response.json();
       this.showToast(`✓ Mensagem de WhatsApp recebida ao vivo! Pedido ${res.order_code} gerado.`, 'success');
 
       // Aguarda 400ms para a fila assíncrona processar e abre a revisão

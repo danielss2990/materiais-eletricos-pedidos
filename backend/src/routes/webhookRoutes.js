@@ -8,8 +8,9 @@ const { safeEqual } = require('../utils/security');
 const router = express.Router();
 
 /**
- * Autenticação dos webhooks internos (e-mail e n8n): exige o cabeçalho X-Webhook-Token
- * igual a WEBHOOK_TOKEN, ou uma sessão de usuário válida (usada pela simulação no painel).
+ * Autenticação do webhook de e-mail: exige o cabeçalho X-Webhook-Token igual a
+ * WEBHOOK_TOKEN, ou uma sessão de usuário válida.
+ * (O webhook do n8n usa o próprio segredo, X-Webhook-Secret / N8N_WEBHOOK_SECRET.)
  */
 function webhookAuth(req, res, next) {
   const provided = req.headers['x-webhook-token'];
@@ -104,115 +105,23 @@ router.post('/email', webhookAuth, async (req, res) => {
 // WEBHOOK ORQUESTRADO VIA N8N (WHATSAPP BUSINESS)
 // ----------------------------------------------------------------------------
 
-// POST /api/webhooks/n8n/whatsapp - Recebe mensagens do WhatsApp processadas pelo n8n
-router.post('/n8n/whatsapp', webhookAuth, async (req, res) => {
-  const crypto = require('node:crypto');
-  const db = require('../database/connection');
-  const taskQueue = require('../services/queue/taskQueue');
-
-  const {
-    externalId: rawExtId,
-    senderPhone,
-    senderName,
-    messageType = 'TEXT',
-    text = '',
-    timestamp: rawTimestamp,
-    mediaId,
-    mimeType
-  } = req.body;
-
-  if (!senderPhone && !text) {
-    return res.status(400).json({ error: 'senderPhone ou text são obrigatórios no payload do n8n.' });
+// POST /api/webhooks/n8n/whatsapp - Recebe mensagens do WhatsApp encaminhadas pelo n8n
+// Aceita o payload original da Meta (com "entry") ou o formato simplificado
+// { externalId, senderPhone, senderName, messageType, text, timestamp, mediaId, mimeType }.
+// O painel usa a rota autenticada /api/integrations/n8n/simulate, então aqui só vale o segredo.
+router.post('/n8n/whatsapp', async (req, res) => {
+  if (!whatsappConnector.verifyN8nSecret(req.headers['x-webhook-secret'])) {
+    console.warn('[Webhook n8n] Cabeçalho X-Webhook-Secret ausente ou inválido.');
+    return res.status(401).json({ error: 'Segredo do webhook n8n inválido.' });
   }
 
-  const externalId = rawExtId || `n8n_wa_${crypto.createHash('md5').update((senderPhone || '') + (text || '') + Date.now()).digest('hex')}`;
-
-  // 1. Idempotência / Deduplicação
-  const existing = db.get('SELECT id FROM messages WHERE external_id = ?', [externalId]);
-  if (existing) {
-    return res.status(200).json({ status: 'DUPLICATE_IGNORED', message: 'Mensagem já processada anteriormente.' });
+  try {
+    const result = await whatsappConnector.processN8nPayload(req.body || {});
+    return res.status(result.httpStatus || 200).json(result.body);
+  } catch (err) {
+    console.error('[Webhook n8n] Erro ao processar payload:', err);
+    return res.status(500).json({ error: err.message });
   }
-
-  const timestamp = rawTimestamp ? new Date(parseInt(rawTimestamp, 10) * 1000).toISOString() : new Date().toISOString();
-  const messageDbId = `msg_n8n_${crypto.randomBytes(6).toString('hex')}`;
-
-  let orderId = null;
-  let orderCode = null;
-
-  db.transaction(() => {
-    // Atualiza canal com last_event_at
-    db.run('UPDATE channels SET last_event_at = ?, last_sync_at = ? WHERE id = ?', [
-      timestamp,
-      new Date().toISOString(),
-      'chan_wa_coex'
-    ]);
-
-    // Insere mensagem bruta
-    db.run(`
-      INSERT INTO messages (id, channel_id, external_id, sender_id, sender_name, direction, content_type, raw_payload, raw_text, received_at)
-      VALUES (?, 'chan_wa_coex', ?, ?, ?, 'INBOUND', ?, ?, ?, ?)
-    `, [
-      messageDbId,
-      externalId,
-      senderPhone || 'WhatsApp Cliente',
-      senderName || 'Cliente WhatsApp via n8n',
-      messageType.toUpperCase(),
-      JSON.stringify(req.body),
-      text,
-      timestamp
-    ]);
-
-    // Cria ou vincula cliente
-    let client = db.get('SELECT id FROM clients WHERE phone = ?', [senderPhone]);
-    if (!client) {
-      const newClientId = `cli_${crypto.randomBytes(6).toString('hex')}`;
-      db.run('INSERT INTO clients (id, name, phone) VALUES (?, ?, ?)', [
-        newClientId,
-        senderName || `Cliente WhatsApp (${senderPhone})`,
-        senderPhone
-      ]);
-      client = { id: newClientId };
-    }
-
-    // Cria Pedido
-    orderId = `ord_${crypto.randomBytes(6).toString('hex')}`;
-    const count = db.get('SELECT COUNT(*) as c FROM orders').c + 1;
-    orderCode = `PED-${new Date().getFullYear()}-${String(count).padStart(4, '0')}`;
-
-    db.run(`
-      INSERT INTO orders (id, order_code, client_id, message_id, channel_id, entry_method, status, original_text, review_notes)
-      VALUES (?, ?, ?, ?, 'chan_wa_coex', 'AUTOMATIC_WHATSAPP', 'PROCESSING', ?, ?)
-    `, [
-      orderId,
-      orderCode,
-      client.id,
-      messageDbId,
-      text,
-      'Capturado via n8n Orchestrator (WhatsApp Business Cloud API).'
-    ]);
-  });
-
-  // Enfileira tarefa assíncrona da IA
-  taskQueue.enqueue({
-    entityType: 'ORDER',
-    entityId: orderId,
-    taskType: 'AI_EXTRACTION',
-    payload: {
-      orderId,
-      orderCode,
-      messageId: messageDbId,
-      text,
-      origin: 'AUTOMATIC_WHATSAPP'
-    }
-  });
-
-  return res.status(200).json({
-    status: 'SUCCESS',
-    orchestrator: 'n8n',
-    order_id: orderId,
-    order_code: orderCode,
-    message: 'Mensagem do WhatsApp processada com sucesso via n8n e integrada ao sistema.'
-  });
 });
 
 module.exports = router;

@@ -15,6 +15,8 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pedidos-sec-'));
 process.env.SQLITE_DB_PATH = path.join(tmpDir, 'test.sqlite');
 process.env.ATTACHMENT_STORAGE_DIR = path.join(tmpDir, 'attachments');
 process.env.WEBHOOK_TOKEN = 'token_de_teste_ci';
+process.env.N8N_WEBHOOK_SECRET = 'segredo_n8n_de_teste_ci';
+process.env.WHATSAPP_API_TOKEN = '';
 process.env.WHATSAPP_APP_SECRET = '';
 process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = '';
 
@@ -143,21 +145,63 @@ test('webhook de e-mail com token errado é rejeitado', async () => {
   assert.strictEqual(res.status, 401);
 });
 
-test('webhook do n8n sem token é rejeitado', async () => {
+const n8nPayload = () => ({
+  externalId: `wam_ci_${crypto.randomBytes(6).toString('hex')}`,
+  senderPhone: '+5511999990000',
+  text: '1 passa-fio'
+});
+
+test('webhook do n8n sem segredo é rejeitado', async () => {
+  const res = await request('/api/webhooks/n8n/whatsapp', { method: 'POST', body: n8nPayload() });
+  assert.strictEqual(res.status, 401);
+});
+
+test('webhook do n8n com segredo errado é rejeitado', async () => {
   const res = await request('/api/webhooks/n8n/whatsapp', {
     method: 'POST',
-    body: { senderPhone: '+5511999990000', text: '1 passa-fio' }
+    headers: { 'X-Webhook-Secret': 'errado' },
+    body: n8nPayload()
   });
   assert.strictEqual(res.status, 401);
 });
 
-test('webhook do n8n aceita token válido', async () => {
+test('webhook do n8n não aceita sessão de usuário no lugar do segredo', async () => {
+  const { cookie } = await login('admin', 'admin123');
   const res = await request('/api/webhooks/n8n/whatsapp', {
     method: 'POST',
-    headers: { 'X-Webhook-Token': process.env.WEBHOOK_TOKEN },
-    body: { senderPhone: '+5511999990000', text: '1 passa-fio' }
+    headers: { Cookie: cookie },
+    body: n8nPayload()
+  });
+  assert.strictEqual(res.status, 401);
+});
+
+test('webhook do n8n aceita segredo válido', async () => {
+  const res = await request('/api/webhooks/n8n/whatsapp', {
+    method: 'POST',
+    headers: { 'X-Webhook-Secret': process.env.N8N_WEBHOOK_SECRET },
+    body: n8nPayload()
   });
   assert.strictEqual(res.status, 200);
+});
+
+test('webhook do n8n rejeita tudo quando o segredo não está configurado', async () => {
+  const original = config.whatsapp.n8nWebhookSecret;
+  config.whatsapp.n8nWebhookSecret = '';
+  try {
+    const res = await request('/api/webhooks/n8n/whatsapp', {
+      method: 'POST',
+      headers: { 'X-Webhook-Secret': '' },
+      body: n8nPayload()
+    });
+    assert.strictEqual(res.status, 401);
+  } finally {
+    config.whatsapp.n8nWebhookSecret = original;
+  }
+});
+
+test('simulação do n8n no painel exige login', async () => {
+  const res = await request('/api/integrations/n8n/simulate', { method: 'POST', body: n8nPayload() });
+  assert.strictEqual(res.status, 401);
 });
 
 test('webhook da Meta sem App Secret configurado rejeita qualquer assinatura', async () => {
