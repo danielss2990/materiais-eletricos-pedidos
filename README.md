@@ -7,22 +7,43 @@ Aplicação empresarial funcional desenvolvida para distribuidora de materiais e
 ## ⚡ Como Executar a Aplicação
 
 ### 1. Pré-requisitos
-- Node.js v20+ instalado (testado e homologado no Node.js v24.21.0).
+- Node.js v22.13+ instalado (o projeto usa o módulo nativo `node:sqlite`; testado no Node.js v22.14.0 e v24.21.0).
 
-### 2. Inicialização do Servidor Backend e Frontend
-No terminal PowerShell ou CMD:
+### 2. Instalação (primeira vez)
+No terminal, a partir da pasta raiz do projeto:
 ```bash
-cd c:\Users\gusta\projetos\materiais-eletricos-pedidos\backend
-node src/server.js
+cd backend
+npm install
+cp .env.example .env
+npm run seed
+```
+No Windows (CMD), use `copy .env.example .env` no lugar do `cp`.
+
+O comando `npm run seed` cria o banco SQLite em `backend/data/` com usuários, catálogo e pedidos de exemplo. O banco não é versionado no Git.
+
+### 3. Inicialização do Servidor Backend e Frontend
+```bash
+cd backend
+npm start
 ```
 A aplicação estará disponível em: **`http://localhost:3000`**
 
-### 3. Execução da Suíte de Testes Automatizados
+No Windows, também é possível dar dois cliques em `INICIAR_SISTEMA.bat`, que instala as dependências e popula o banco automaticamente na primeira execução.
+
+**Usuários de demonstração** (criados pelo seed):
+
+| Usuário | Senha | Perfil |
+|---|---|---|
+| `admin` | `admin123` | Administrador |
+| `vendedor1` | `vendas123` | Atendimento |
+| `analista1` | `cotacao123` | Cotações |
+
+### 4. Execução da Suíte de Testes Automatizados
 ```bash
-cd c:\Users\gusta\projetos\materiais-eletricos-pedidos
-node tests/runTests.js
+cd backend
+npm test
 ```
-Todos os 16 cenários de teste são validados de ponta a ponta com 100% de sucesso.
+Todos os 17 cenários de teste são validados de ponta a ponta com 100% de sucesso.
 
 ---
 
@@ -47,6 +68,10 @@ materiais-eletricos-pedidos/
 │   │   ├── routes/                 # auth, orders, review, catalog, quotations, integrations, reports, webhooks
 │   │   ├── middlewares/            # auth (RBAC), upload (multer), audit (LGPD)
 │   │   └── server.js               # Servidor Express
+│   ├── data/                       # Banco SQLite local (gerado pelo seed, fora do Git)
+│   ├── storage/
+│   │   └── attachments/            # Armazenamento privado fora do web root público
+│   ├── .env.example                # Modelo de variáveis de ambiente
 │   └── package.json
 ├── frontend/
 │   ├── index.html                  # Shell SPA com 7 áreas operacionais
@@ -55,10 +80,8 @@ materiais-eletricos-pedidos/
 │       ├── api.js                  # Cliente REST autenticado
 │       ├── app.js                  # Router SPA e controle de modais
 │       └── views/                  # dashboard, orders, review (split-screen), catalog, quotations, integrations, reports
-├── storage/
-│   └── attachments/                # Armazenamento privado fora do web root público
 └── tests/
-    └── runTests.js                 # 16 cenários automatizados obrigatórios
+    └── runTests.js                 # 17 cenários automatizados obrigatórios
 ```
 
 ---

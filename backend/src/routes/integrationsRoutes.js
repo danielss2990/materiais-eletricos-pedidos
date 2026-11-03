@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../database/connection');
 const { authMiddleware } = require('../middlewares/authMiddleware');
 const whatsappPersonalStub = require('../services/connectors/whatsappPersonalStub');
+const whatsappCloudApi = require('../services/connectors/whatsappCloudApi');
 
 const router = express.Router();
 
@@ -85,6 +86,17 @@ router.post('/whatsapp-personal/assist', authMiddleware(), (req, res) => {
     });
   } catch (err) {
     return res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/integrations/n8n/simulate - Simula uma mensagem do WhatsApp chegando pelo n8n
+// (rota autenticada usada pelo painel, sem expor o segredo do webhook ao navegador)
+router.post('/n8n/simulate', authMiddleware(), async (req, res) => {
+  try {
+    const result = await whatsappCloudApi.processN8nPayload(req.body || {});
+    return res.status(result.httpStatus || 200).json(result.body);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 });
 
