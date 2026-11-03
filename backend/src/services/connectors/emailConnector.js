@@ -4,6 +4,7 @@ const path = require('node:path');
 const config = require('../../config');
 const db = require('../../database/connection');
 const taskQueue = require('../queue/taskQueue');
+const { safeFilename, resolveInside } = require('../../utils/security');
 
 /**
  * Conector de E-mail Comercial (IMAP / Webhook).
@@ -79,8 +80,8 @@ class EmailConnector {
       // Trata anexos
       for (const att of attachments) {
         const attId = `att_${crypto.randomBytes(6).toString('hex')}`;
-        const filename = att.filename || `anexo_email_${Date.now()}`;
-        const targetPath = path.join(config.storage.attachmentsDir, `${attId}_${filename}`);
+        const filename = safeFilename(att.filename, `anexo_email_${Date.now()}`);
+        const targetPath = resolveInside(config.storage.attachmentsDir, `${attId}_${filename}`);
 
         if (att.contentBuffer) {
           fs.writeFileSync(targetPath, att.contentBuffer);

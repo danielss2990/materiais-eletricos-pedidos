@@ -38,12 +38,26 @@ No Windows, também é possível dar dois cliques em `INICIAR_SISTEMA.bat`, que 
 | `vendedor1` | `vendas123` | Atendimento |
 | `analista1` | `cotacao123` | Cotações |
 
-### 4. Execução da Suíte de Testes Automatizados
+O painel exige login. As senhas acima são fracas e públicas: troque-as antes de qualquer uso real.
+
+### 4. Segurança dos webhooks
+No `backend/.env`, defina:
+- `WEBHOOK_TOKEN`: exigido no cabeçalho `X-Webhook-Token` por `/api/webhooks/email`. Sem ele, só usuários logados podem chamar esse endpoint.
+- `N8N_WEBHOOK_SECRET`: exigido no cabeçalho `X-Webhook-Secret` por `/api/webhooks/n8n/whatsapp`. Sem ele, o endpoint rejeita todas as chamadas. Use o mesmo valor no campo `backendWebhookSecret` do workflow do n8n.
+- `WHATSAPP_WEBHOOK_VERIFY_TOKEN` e `WHATSAPP_APP_SECRET`: sem eles, o webhook da Meta rejeita todas as chamadas.
+
+O passo a passo do n8n está em [`docs/integracao-n8n.md`](docs/integracao-n8n.md).
+
+### 5. Execução da Suíte de Testes Automatizados
 ```bash
 cd backend
 npm test
 ```
-Todos os 17 cenários de teste são validados de ponta a ponta com 100% de sucesso.
+O comando roda duas suítes, que também podem ser executadas separadamente:
+- `npm run test:scenarios`: os 17 cenários de ponta a ponta do fluxo de pedidos (`tests/runTests.js`).
+- `npm run test:security`: testes HTTP de segurança da API (`tests/security.test.js`), com banco e anexos isolados em diretório temporário.
+
+Os testes também rodam automaticamente no GitHub Actions a cada pull request e a cada push na `main` (`.github/workflows/tests.yml`).
 
 ---
 
@@ -51,6 +65,7 @@ Todos os 17 cenários de teste são validados de ponta a ponta com 100% de suces
 
 ```
 materiais-eletricos-pedidos/
+├── .github/workflows/tests.yml     # CI: testes automáticos no GitHub Actions
 ├── docs/
 │   ├── viabilidade-integracoes.md   # Auditoria da Meta, Cloud API Coex, WA Pessoal e E-mail
 │   ├── arquitetura.md              # Arquitetura modular, segurança e LGPD
@@ -67,6 +82,7 @@ materiais-eletricos-pedidos/
 │   │   │   └── quotation/          # quotationService e exportService (CSV/JSON)
 │   │   ├── routes/                 # auth, orders, review, catalog, quotations, integrations, reports, webhooks
 │   │   ├── middlewares/            # auth (RBAC), upload (multer), audit (LGPD)
+│   │   ├── utils/security.js       # Hash de senhas, comparação segura e sanitização de arquivos
 │   │   └── server.js               # Servidor Express
 │   ├── data/                       # Banco SQLite local (gerado pelo seed, fora do Git)
 │   ├── storage/
@@ -81,8 +97,40 @@ materiais-eletricos-pedidos/
 │       ├── app.js                  # Router SPA e controle de modais
 │       └── views/                  # dashboard, orders, review (split-screen), catalog, quotations, integrations, reports
 └── tests/
-    └── runTests.js                 # 17 cenários automatizados obrigatórios
+    ├── runTests.js                 # 17 cenários automatizados do fluxo de pedidos
+    └── security.test.js            # Testes HTTP de segurança da API
 ```
+
+---
+
+## 🛡️ Melhorias de Segurança e Qualidade
+
+Uma revisão de código encontrou falhas críticas e altas de segurança, corrigidas conforme abaixo.
+
+### Falhas críticas corrigidas
+| Problema | Correção |
+|---|---|
+| Requisições sem cabeçalho `Authorization` eram tratadas como ADMIN, e o ID do usuário (ex.: `usr_admin`) era aceito como token, pulando a checagem de perfil. | Toda rota protegida exige sessão válida; a checagem de perfil vale sempre; sessões expiram em 12 horas. |
+| O nome de anexos vindos de e-mail e WhatsApp era usado direto no caminho do arquivo, permitindo gravar fora da pasta de anexos (inclusive sobrescrever o código do servidor). | Nomes são sanitizados (`safeFilename`) e o caminho final é validado dentro da pasta de anexos (`resolveInside`). |
+| Os webhooks de e-mail e n8n não tinham autenticação, e o webhook da Meta usava um App Secret padrão público. | O e-mail exige `X-Webhook-Token` (ou usuário logado) e o n8n exige `X-Webhook-Secret`; ambos rejeitam tudo se o segredo não estiver configurado. Os segredos padrão da Meta e do n8n foram removidos: sem `WHATSAPP_APP_SECRET`, o webhook da Meta rejeita tudo. |
+
+### Falhas altas corrigidas
+| Problema | Correção |
+|---|---|
+| Nome do cliente, nome de anexos e outros dados externos eram inseridos no HTML sem escape (XSS armazenado). | Todos os dados dinâmicos das telas passam por `escapeHtml`. |
+| Anexos eram servidos inline com o tipo informado pelo remetente (ex.: HTML ou SVG executando no domínio do sistema). | Apenas imagens comuns, PDF e áudio abrem inline; o restante é baixado como `application/octet-stream`, com `X-Content-Type-Options: nosniff` e CSP `sandbox`. Upload de SVG bloqueado. |
+| Senhas armazenadas com SHA-256 sem salt. | Senhas com `scrypt` e salt aleatório; hashes antigos são aceitos e migrados automaticamente no próximo login. |
+
+### Outras melhorias
+- **Login no painel:** nova tela de login e botão "Sair". A sessão fica num cookie `HttpOnly` e `SameSite=Strict`, e o token não é mais guardado no `localStorage`.
+- **Configuração:** `.env.example`, fluxo do n8n e documentação sem segredos de exemplo; os valores precisam ser definidos por quem instala.
+- **Testes automáticos:** nova suíte de segurança com 21 testes HTTP cobrindo autenticação, cookie de sessão, permissões, migração de senhas, webhooks, path traversal e download de anexos, executada no GitHub Actions junto com os cenários existentes.
+
+### Pendências conhecidas (gravidade média)
+- O código do pedido (`PED-AAAA-NNNN`) é calculado com `COUNT(*) + 1` e pode se repetir após exclusões ou requisições simultâneas.
+- O total da listagem de pedidos ignora os filtros aplicados.
+- Tarefas da fila que falham não são tentadas novamente, e tarefas interrompidas ficam presas em `PROCESSING`.
+- Anexos de teste em `backend/storage/attachments/` estão versionados no repositório.
 
 ---
 

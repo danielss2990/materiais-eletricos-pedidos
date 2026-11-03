@@ -89,8 +89,8 @@ const DashboardView = {
             <tbody>
               ${ordersData.orders.map(o => `
                 <tr>
-                  <td><strong>${o.order_code}</strong></td>
-                  <td>${o.client_name || 'Cliente Balcão'}</td>
+                  <td><strong>${escapeHtml(o.order_code)}</strong></td>
+                  <td>${escapeHtml(o.client_name || 'Cliente Balcão')}</td>
                   <td>${renderChannelBadge(o.entry_method)}</td>
                   <td>${renderStatusBadge(o.status)}</td>
                   <td>${o.item_count || 0} material(is) ${o.review_count > 0 ? `<span style="color:#b45309; font-weight:600;">(${o.review_count} pendência)</span>` : ''}</td>
@@ -105,7 +105,7 @@ const DashboardView = {
         </div>
       `;
     } catch (err) {
-      container.innerHTML = `<div class="card" style="color: var(--danger);">Erro ao carregar painel: ${err.message}</div>`;
+      container.innerHTML = `<div class="card" style="color: var(--danger);">Erro ao carregar painel: ${escapeHtml(err.message)}</div>`;
     }
   }
 };
@@ -126,7 +126,7 @@ function renderChannelBadge(method) {
     case 'AUTOMATIC_EMAIL': return '<span class="badge badge-email">E-mail</span>';
     case 'MANUAL_ENTRY': return '<span class="badge badge-manual">Manual</span>';
     case 'FILE_IMPORT': return '<span class="badge badge-upload">Upload</span>';
-    default: return `<span class="badge">${method}</span>`;
+    default: return `<span class="badge">${escapeHtml(method)}</span>`;
   }
 }
 
@@ -138,6 +138,6 @@ function renderStatusBadge(status) {
     case 'IN_QUOTATION': return '<span class="badge badge-quotation">Em Cotação</span>';
     case 'QUOTED': return '<span class="badge badge-approved">Cotado</span>';
     case 'REJECTED': return '<span class="badge badge-rejected">Rejeitado</span>';
-    default: return `<span class="badge">${status}</span>`;
+    default: return `<span class="badge">${escapeHtml(status)}</span>`;
   }
 }

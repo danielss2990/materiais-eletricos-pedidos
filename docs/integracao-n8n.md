@@ -84,7 +84,7 @@ No Docker, o backend não é `localhost` para o n8n: use `http://host.docker.int
 
 1. Acesse o n8n no navegador em **`http://localhost:5678`**.
 2. Em **Workflows**, use **Import from File** e selecione `n8n/workflows/whatsapp-pedidos-workflow.json` (na pasta do projeto).
-3. Abra o nó **Configuração (Verificação)** e defina `verifyToken` (o mesmo valor que será informado no painel da Meta).
+3. Abra o nó **Configuração (Verificação)** e defina `verifyToken` (o mesmo valor que será informado no painel da Meta). O campo vem vazio de propósito: sem ele, a verificação é recusada.
 4. Abra o nó **Configuração (Envio)** e defina:
 
    | Campo | Valor |
@@ -101,7 +101,7 @@ A URL de produção do webhook será `http://localhost:5678/webhook/whatsapp-web
 
 | Variável | Uso |
 |---|---|
-| `N8N_WEBHOOK_SECRET` | Segredo exigido no cabeçalho `X-Webhook-Secret`. Vazio desativa a verificação (apenas para desenvolvimento). |
+| `N8N_WEBHOOK_SECRET` | Segredo exigido no cabeçalho `X-Webhook-Secret`. Obrigatório: vazio faz o endpoint rejeitar todas as chamadas. |
 | `WHATSAPP_API_TOKEN` | Token da Cloud API. Necessário para baixar fotos, áudios e documentos; sem ele, o anexo é registrado só com a referência da mídia. |
 | `WHATSAPP_GRAPH_API_VERSION` | Versão da Graph API usada no download (padrão `v21.0`). |
 
@@ -122,7 +122,7 @@ A URL de produção do webhook será `http://localhost:5678/webhook/whatsapp-web
 
 ### Verificação (simula o cadastro da Callback URL na Meta)
 ```powershell
-Invoke-RestMethod "http://localhost:5678/webhook/whatsapp-webhook?hub.mode=subscribe&hub.verify_token=token_verificacao_meta_webhook_2026&hub.challenge=12345"
+Invoke-RestMethod "http://localhost:5678/webhook/whatsapp-webhook?hub.mode=subscribe&hub.verify_token=SEU_VERIFY_TOKEN&hub.challenge=12345"
 ```
 Resposta esperada: `12345`.
 
@@ -165,7 +165,7 @@ $body = @{
 } | ConvertTo-Json
 
 Invoke-RestMethod -Uri "http://localhost:3000/api/webhooks/n8n/whatsapp" -Method Post `
-  -Headers @{ "X-Webhook-Secret" = "troque_este_segredo_n8n_2026" } `
+  -Headers @{ "X-Webhook-Secret" = $env:N8N_WEBHOOK_SECRET } `
   -Body ([Text.Encoding]::UTF8.GetBytes($body)) -ContentType "application/json; charset=utf-8"
 ```
 

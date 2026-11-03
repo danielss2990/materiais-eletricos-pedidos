@@ -31,7 +31,8 @@ const ALLOWED_MIME_TYPES = new Set([
 
 function fileFilter(req, file, cb) {
   const mime = file.mimetype.toLowerCase();
-  if (ALLOWED_MIME_TYPES.has(mime) || mime.startsWith('audio/') || mime.startsWith('image/')) {
+  // image/* genérico não é aceito: SVG pode conter scripts
+  if (ALLOWED_MIME_TYPES.has(mime) || mime.startsWith('audio/')) {
     cb(null, true);
   } else {
     cb(new Error(`Tipo de arquivo não permitido: ${file.mimetype}. Formatos aceitos: imagens, PDFs, planilhas e áudios.`));

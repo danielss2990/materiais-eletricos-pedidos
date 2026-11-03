@@ -71,7 +71,7 @@ const IntegrationsView = {
                 </div>
 
                 <div style="background-color: #f8fafc; border-radius: var(--radius); padding: 12px; font-size: 12px; margin-bottom: 12px;">
-                  <div style="margin-bottom: 4px;"><strong>Tipo:</strong> ${c.type}</div>
+                  <div style="margin-bottom: 4px;"><strong>Tipo:</strong> ${escapeHtml(c.type)}</div>
                   <div style="margin-bottom: 4px;"><strong>Último Evento:</strong> ${c.last_event_at ? new Date(c.last_event_at).toLocaleString('pt-BR') : 'Nenhum evento recente'}</div>
                   <div><strong>Última Sincronização:</strong> ${c.last_sync_at ? new Date(c.last_sync_at).toLocaleString('pt-BR') : 'Não sincronizado'}</div>
                 </div>
@@ -128,9 +128,9 @@ const IntegrationsView = {
                   <td>${escapeHtml(e.channel_name || e.channel_type)}</td>
                   <td><strong>${escapeHtml(e.sender_name || e.sender_id)}</strong></td>
                   <td>${e.direction === 'INBOUND' ? '<span class="badge" style="background:#e0f2fe; color:#0369a1;">Entrada (Cliente)</span>' : '<span class="badge" style="background:#f1f5f9; color:#475569;">Saída (Vendedor)</span>'}</td>
-                  <td><span class="badge" style="background:#f8fafc; border: 1px solid var(--border-color);">${e.content_type}</span></td>
+                  <td><span class="badge" style="background:#f8fafc; border: 1px solid var(--border-color);">${escapeHtml(e.content_type)}</span></td>
                   <td><code style="font-size: 11px;">${escapeHtml(e.external_id || 'manual')}</code></td>
-                  <td><strong>${e.order_code || '-'}</strong></td>
+                  <td><strong>${escapeHtml(e.order_code || '-')}</strong></td>
                 </tr>
               `).join('')}
             </tbody>
@@ -138,7 +138,7 @@ const IntegrationsView = {
         </div>
       `;
     } catch (err) {
-      container.innerHTML = `<div class="card" style="color: var(--danger);">Erro: ${err.message}</div>`;
+      container.innerHTML = `<div class="card" style="color: var(--danger);">Erro: ${escapeHtml(err.message)}</div>`;
     }
   },
 

@@ -1,9 +1,6 @@
 const crypto = require('node:crypto');
 const db = require('./connection');
-
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
+const { hashPassword } = require('../utils/security');
 
 function generateId(prefix = 'id') {
   return `${prefix}_${crypto.randomBytes(8).toString('hex')}`;

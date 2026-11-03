@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "seed": "node src/database/seed.js",
-    "test": "node ../tests/runTests.js"
+    "test": "npm run test:scenarios && npm run test:security",
+    "test:scenarios": "node ../tests/runTests.js",
+    "test:security": "node --test ../tests/security.test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

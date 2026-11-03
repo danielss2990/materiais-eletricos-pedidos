@@ -1,12 +1,28 @@
 const express = require('express');
-const crypto = require('node:crypto');
 const db = require('../database/connection');
-const { generateSessionToken, authMiddleware } = require('../middlewares/authMiddleware');
+const config = require('../config');
+const {
+  generateSessionToken,
+  revokeSession,
+  extractToken,
+  authMiddleware,
+  SESSION_COOKIE,
+  SESSION_TTL_MS
+} = require('../middlewares/authMiddleware');
+const { hashPassword, verifyPassword, isLegacyHash } = require('../utils/security');
 
 const router = express.Router();
 
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex');
+function sessionCookie(value, maxAgeSec) {
+  const parts = [
+    `${SESSION_COOKIE}=${encodeURIComponent(value)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Strict',
+    `Max-Age=${maxAgeSec}`
+  ];
+  if (config.env === 'production') parts.push('Secure');
+  return parts.join('; ');
 }
 
 // POST /api/auth/login
@@ -17,16 +33,17 @@ router.post('/login', (req, res) => {
   }
 
   const user = db.get('SELECT * FROM users WHERE username = ? AND active = 1', [username]);
-  if (!user) {
+  if (!user || !verifyPassword(password, user.password_hash)) {
     return res.status(401).json({ error: 'Credenciais inválidas.' });
   }
 
-  const passwordHash = hashPassword(password);
-  if (user.password_hash !== passwordHash) {
-    return res.status(401).json({ error: 'Credenciais inválidas.' });
+  // Migra hashes legados (SHA-256 sem salt) para scrypt
+  if (isLegacyHash(user.password_hash)) {
+    db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(password), user.id]);
   }
 
   const token = generateSessionToken(user);
+  res.setHeader('Set-Cookie', sessionCookie(token, Math.floor(SESSION_TTL_MS / 1000)));
   return res.json({
     token,
     user: {
@@ -37,6 +54,13 @@ router.post('/login', (req, res) => {
       role: user.role
     }
   });
+});
+
+// POST /api/auth/logout
+router.post('/logout', (req, res) => {
+  revokeSession(extractToken(req));
+  res.setHeader('Set-Cookie', sessionCookie('', 0));
+  return res.json({ message: 'Sessão encerrada.' });
 });
 
 // GET /api/auth/me

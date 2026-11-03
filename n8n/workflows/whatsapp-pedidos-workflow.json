@@ -24,7 +24,7 @@
             {
               "id": "cfg-get-0",
               "name": "verifyToken",
-              "value": "token_verificacao_meta_webhook_2026",
+              "value": "",
               "type": "string"
             }
           ]
@@ -162,7 +162,7 @@
             {
               "id": "cfg-post-2",
               "name": "backendWebhookSecret",
-              "value": "troque_este_segredo_n8n_2026",
+              "value": "",
               "type": "string"
             }
           ]

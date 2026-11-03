@@ -45,9 +45,9 @@ const QuotationsView = {
                 <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Nenhuma cotação gerada ainda. Aprove pedidos na tela de Revisão para iniciar cotações.</td></tr>
               ` : quotations.map(q => `
                 <tr>
-                  <td><strong>${q.quotation_code}</strong></td>
-                  <td>${q.order_code}</td>
-                  <td>${q.client_name || 'Cliente Balcão'}</td>
+                  <td><strong>${escapeHtml(q.quotation_code)}</strong></td>
+                  <td>${escapeHtml(q.order_code)}</td>
+                  <td>${escapeHtml(q.client_name || 'Cliente Balcão')}</td>
                   <td>${renderStatusBadge(q.status)}</td>
                   <td>${q.item_count || 0} material(is)</td>
                   <td><strong>${q.proposal_count || 0} proposta(s)</strong></td>
@@ -62,7 +62,7 @@ const QuotationsView = {
         </div>
       `;
     } catch (err) {
-      container.innerHTML = `<div class="card" style="color: var(--danger);">Erro: ${err.message}</div>`;
+      container.innerHTML = `<div class="card" style="color: var(--danger);">Erro: ${escapeHtml(err.message)}</div>`;
     }
   },
 
@@ -77,7 +77,7 @@ const QuotationsView = {
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <div style="display: flex; align-items: center; gap: 12px;">
             <button class="btn btn-secondary btn-sm" onclick="App.navigateTo('quotations')">← Voltar para Cotações</button>
-            <h2 style="font-size: 18px; font-weight: 700;">Mapa Comparativo: ${quotation.quotation_code}</h2>
+            <h2 style="font-size: 18px; font-weight: 700;">Mapa Comparativo: ${escapeHtml(quotation.quotation_code)}</h2>
             ${renderStatusBadge(quotation.status)}
           </div>
           <div style="display: flex; gap: 8px;">
@@ -97,7 +97,7 @@ const QuotationsView = {
             </div>
             <div>
               <span style="font-size: 12px; color: var(--text-muted);">Fornecedores cotados: </span>
-              ${proposals.map(p => `<strong>${p.supplier_name}</strong>`).join(', ') || 'Nenhuma proposta lançada'}
+              ${proposals.map(p => `<strong>${escapeHtml(p.supplier_name)}</strong>`).join(', ') || 'Nenhuma proposta lançada'}
             </div>
           </div>
         </div>
@@ -116,7 +116,7 @@ const QuotationsView = {
                 ${proposals.map(p => `
                   <th style="background-color: #eff6ff; color: #1e40af;">
                     ${escapeHtml(p.supplier_name)}
-                    <div style="font-size: 10.5px; font-weight: normal; color: #64748b;">Prazo: ${p.delivery_deadline_days}d | ${p.payment_terms || 'Cond. padrão'}</div>
+                    <div style="font-size: 10.5px; font-weight: normal; color: #64748b;">Prazo: ${p.delivery_deadline_days}d | ${escapeHtml(p.payment_terms || 'Cond. padrão')}</div>
                   </th>
                 `).join('')}
               </tr>
@@ -125,18 +125,18 @@ const QuotationsView = {
               ${items.map((it, idx) => `
                 <tr>
                   <td><strong>#${idx + 1}</strong></td>
-                  <td><code>${it.sku || 'N/D'}</code></td>
+                  <td><code>${escapeHtml(it.sku || 'N/D')}</code></td>
                   <td>
                     <strong>${escapeHtml(it.product_name)}</strong>
                     <div style="font-size: 11px; color: var(--text-muted);">Pedido: "${escapeHtml(it.original_text)}"</div>
                   </td>
                   <td><strong>${it.quantity}</strong></td>
-                  <td>${it.unit}</td>
+                  <td>${escapeHtml(it.unit)}</td>
                   <td style="background-color: #f0fdf4; font-weight: 700; color: #059669; font-size: 14px;">
                     ${it.lowest_unit_price !== null ? `R$ ${it.lowest_unit_price.toFixed(2)}` : '<span style="color:#94a3b8; font-weight:normal;">Aguardando</span>'}
                   </td>
                   <td style="background-color: #f0fdf4; font-weight: 600; color: #065f46;">
-                    ${it.best_supplier || '-'}
+                    ${escapeHtml(it.best_supplier || '-')}
                   </td>
                   ${proposals.map(p => {
                     const offer = it.offers.find(o => o.supplier_id === p.supplier_id);
@@ -145,7 +145,7 @@ const QuotationsView = {
                     return `
                       <td style="${isWinner ? 'background-color: #fefce8; font-weight: 700;' : ''}">
                         <div>R$ ${offer.unit_price.toFixed(2)}</div>
-                        <div style="font-size: 11px; color: var(--text-muted);">${offer.brand_offered || 'Marca padrão'}</div>
+                        <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(offer.brand_offered || 'Marca padrão')}</div>
                       </td>
                     `;
                   }).join('')}
@@ -156,7 +156,7 @@ const QuotationsView = {
         </div>
       `;
     } catch (err) {
-      container.innerHTML = `<div class="card" style="color: var(--danger);">Erro: ${err.message}</div>`;
+      container.innerHTML = `<div class="card" style="color: var(--danger);">Erro: ${escapeHtml(err.message)}</div>`;
     }
   },
 

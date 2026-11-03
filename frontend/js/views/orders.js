@@ -70,10 +70,10 @@ const OrdersView = {
             <tbody>
               ${data.orders.map(o => `
                 <tr>
-                  <td><strong>${o.order_code}</strong></td>
+                  <td><strong>${escapeHtml(o.order_code)}</strong></td>
                   <td>
-                    <div style="font-weight: 600;">${o.client_name || 'Cliente Balcão'}</div>
-                    <div style="font-size: 11.5px; color: var(--text-muted);">${o.client_phone || o.client_email || 'Sem contato'}</div>
+                    <div style="font-weight: 600;">${escapeHtml(o.client_name || 'Cliente Balcão')}</div>
+                    <div style="font-size: 11.5px; color: var(--text-muted);">${escapeHtml(o.client_phone || o.client_email || 'Sem contato')}</div>
                   </td>
                   <td>${renderChannelBadge(o.entry_method)}</td>
                   <td>${renderStatusBadge(o.status)}</td>
@@ -95,7 +95,7 @@ const OrdersView = {
           </table>
         `;
       } catch (err) {
-        document.getElementById('ordersTableWrapper').innerHTML = `<div style="padding: 20px; color: var(--danger);">Erro: ${err.message}</div>`;
+        document.getElementById('ordersTableWrapper').innerHTML = `<div style="padding: 20px; color: var(--danger);">Erro: ${escapeHtml(err.message)}</div>`;
       }
     };
 

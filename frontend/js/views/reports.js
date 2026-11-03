@@ -109,7 +109,7 @@ const ReportsView = {
         </div>
       `;
     } catch (err) {
-      container.innerHTML = `<div class="card" style="color: var(--danger);">Erro: ${err.message}</div>`;
+      container.innerHTML = `<div class="card" style="color: var(--danger);">Erro: ${escapeHtml(err.message)}</div>`;
     }
   }
 };

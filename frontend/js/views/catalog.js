@@ -59,13 +59,13 @@ const CatalogView = {
             <tbody>
               ${data.products.map(p => `
                 <tr>
-                  <td><code>${p.sku}</code></td>
+                  <td><code>${escapeHtml(p.sku)}</code></td>
                   <td>
                     <strong>${escapeHtml(p.name)}</strong>
                     <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(p.technical_description)}</div>
                   </td>
-                  <td><span class="badge" style="background:#f1f5f9; color:#334155;">${p.category}</span></td>
-                  <td><strong>${p.default_unit}</strong></td>
+                  <td><span class="badge" style="background:#f1f5f9; color:#334155;">${escapeHtml(p.category)}</span></td>
+                  <td><strong>${escapeHtml(p.default_unit)}</strong></td>
                   <td>
                     <div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 280px;">
                       ${(p.synonyms || []).map(s => `<span class="badge" style="background:#eff6ff; color:#1e40af; font-size: 10.5px;">${escapeHtml(s)}</span>`).join('')}
@@ -73,7 +73,7 @@ const CatalogView = {
                   </td>
                   <td>
                     <span style="font-size: 11.5px; color: var(--text-muted);">
-                      ${Object.entries(p.specifications || {}).map(([k, v]) => `${k}: ${v}`).join(' | ') || '-'}
+                      ${Object.entries(p.specifications || {}).map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(v)}`).join(' | ') || '-'}
                     </span>
                   </td>
                   <td style="text-align: right;">
@@ -85,7 +85,7 @@ const CatalogView = {
           </table>
         `;
       } catch (err) {
-        document.getElementById('catalogTableWrapper').innerHTML = `<div style="padding: 20px; color: var(--danger);">Erro: ${err.message}</div>`;
+        document.getElementById('catalogTableWrapper').innerHTML = `<div style="padding: 20px; color: var(--danger);">Erro: ${escapeHtml(err.message)}</div>`;
       }
     };
 

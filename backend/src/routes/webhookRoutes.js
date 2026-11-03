@@ -1,8 +1,31 @@
 const express = require('express');
 const whatsappConnector = require('../services/connectors/whatsappCloudApi');
 const emailConnector = require('../services/connectors/emailConnector');
+const config = require('../config');
+const { getSession } = require('../middlewares/authMiddleware');
+const { safeEqual } = require('../utils/security');
 
 const router = express.Router();
+
+/**
+ * Autenticação do webhook de e-mail: exige o cabeçalho X-Webhook-Token igual a
+ * WEBHOOK_TOKEN, ou uma sessão de usuário válida.
+ * (O webhook do n8n usa o próprio segredo, X-Webhook-Secret / N8N_WEBHOOK_SECRET.)
+ */
+function webhookAuth(req, res, next) {
+  const provided = req.headers['x-webhook-token'];
+  if (config.webhooks.token && provided && safeEqual(String(provided), config.webhooks.token)) {
+    return next();
+  }
+
+  const session = getSession(req);
+  if (session) {
+    req.user = session;
+    return next();
+  }
+
+  return res.status(401).json({ error: 'Webhook não autorizado: informe um X-Webhook-Token válido.' });
+}
 
 // ----------------------------------------------------------------------------
 // WEBHOOK WHATSAPP CLOUD API (META BUSINESS PLATFORM)
@@ -52,7 +75,7 @@ router.post('/whatsapp', async (req, res) => {
 // ----------------------------------------------------------------------------
 
 // POST /api/webhooks/email - Ingestão de mensagens de e-mail recebidas
-router.post('/email', async (req, res) => {
+router.post('/email', webhookAuth, async (req, res) => {
   const { messageId, from, fromName, to, subject, date, bodyText, attachments } = req.body;
 
   if (!from || (!bodyText && (!attachments || attachments.length === 0))) {
@@ -85,6 +108,7 @@ router.post('/email', async (req, res) => {
 // POST /api/webhooks/n8n/whatsapp - Recebe mensagens do WhatsApp encaminhadas pelo n8n
 // Aceita o payload original da Meta (com "entry") ou o formato simplificado
 // { externalId, senderPhone, senderName, messageType, text, timestamp, mediaId, mimeType }.
+// O painel usa a rota autenticada /api/integrations/n8n/simulate, então aqui só vale o segredo.
 router.post('/n8n/whatsapp', async (req, res) => {
   if (!whatsappConnector.verifyN8nSecret(req.headers['x-webhook-secret'])) {
     console.warn('[Webhook n8n] Cabeçalho X-Webhook-Secret ausente ou inválido.');
