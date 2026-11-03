@@ -3,112 +3,364 @@
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "POST",
         "path": "whatsapp-webhook",
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "node-webhook-meta",
-      "name": "Webhook WhatsApp (Meta)",
+      "id": "wh-get",
+      "name": "Webhook WhatsApp (Verificação Meta)",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 300],
-      "webhookId": "whatsapp-meta-webhook"
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "b7f1e3a2-6c1d-4c55-9d1e-0a8f3e2b7c01"
     },
     {
       "parameters": {
-        "jsCode": "// Extrai metadados e conteúdo da mensagem da Meta Cloud API\nconst body = $json.body || $json;\n\nif (!body.entry || !body.entry[0] || !body.entry[0].changes) {\n  return [{ json: { isValid: false, reason: 'Payload sem entry' } }];\n}\n\nconst change = body.entry[0].changes[0];\nconst value = change.value;\n\nif (!value.messages || value.messages.length === 0) {\n  // Evento de status de entrega ou echo\n  if (value.message_echoes && value.message_echoes.length > 0) {\n    return [{\n      json: {\n        isValid: true,\n        type: 'ECHO',\n        echo: value.message_echoes[0]\n      }\n    }];\n  }\n  return [{ json: { isValid: false, reason: 'Sem mensagens novas' } }];\n}\n\nconst msg = value.messages[0];\nconst contact = (value.contacts && value.contacts[0]) || {};\n\nlet textContent = '';\nlet messageType = msg.type || 'text';\nlet mediaId = null;\nlet mimeType = null;\n\nif (msg.type === 'text') {\n  textContent = msg.text.body;\n} else if (msg.type === 'image') {\n  textContent = msg.image.caption || '[Foto de Lista / Peça Elétrica]';\n  mediaId = msg.image.id;\n  mimeType = msg.image.mime_type;\n} else if (msg.type === 'audio' || msg.type === 'voice') {\n  textContent = '[Áudio / Mensagem de Voz de Pedido]';\n  mediaId = msg.audio ? msg.audio.id : (msg.voice ? msg.voice.id : null);\n  mimeType = 'audio/ogg';\n} else if (msg.type === 'document') {\n  textContent = msg.document.caption || msg.document.filename || '[Documento de Pedido]';\n  mediaId = msg.document.id;\n  mimeType = msg.document.mime_type;\n}\n\nreturn [{\n  json: {\n    isValid: true,\n    externalId: msg.id,\n    senderPhone: msg.from,\n    senderName: contact.profile ? contact.profile.name : `Cliente (${msg.from})`,\n    messageType: messageType,\n    textContent: textContent,\n    mediaId: mediaId,\n    mimeType: mimeType,\n    timestamp: msg.timestamp,\n    rawPayload: msg\n  }\n}];"
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-get-0",
+              "name": "verifyToken",
+              "value": "token_verificacao_meta_webhook_2026",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
       },
-      "id": "node-parse-message",
-      "name": "Normalizar Mensagem WhatsApp",
+      "id": "cfg-get",
+      "name": "Configuração (Verificação)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "notes": "Edite estes valores antes de ativar o fluxo.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Valida o handshake de verificação da Meta (GET com hub.mode, hub.verify_token e hub.challenge)\nconst config = $('Configuração (Verificação)').first().json;\nconst query = $('Webhook WhatsApp (Verificação Meta)').first().json.query || {};\n\nconst ok = query['hub.mode'] === 'subscribe'\n  && !!config.verifyToken\n  && query['hub.verify_token'] === config.verifyToken;\n\nreturn [{ json: { ok, challenge: String(query['hub.challenge'] || '') } }];\n"
+      },
+      "id": "code-get",
+      "name": "Validar Token de Verificação",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [460, 300]
+      "position": [
+        440,
+        0
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "boolean": [
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
             {
-              "value1": "={{ $json.isValid }}",
-              "value2": true
+              "id": "if-get-c",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
-          ]
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-get",
+      "name": "Token Válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.challenge }}",
+        "options": {
+          "responseCode": 200
         }
       },
-      "id": "node-filter-valid",
-      "name": "Mensagem Válida?",
-      "type": "n8n-nodes-base.if",
+      "id": "resp-get-ok",
+      "name": "Responder Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Token de verificação inválido",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "resp-get-403",
+      "name": "Responder 403",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-webhook",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "wh-post",
+      "name": "Webhook WhatsApp (Mensagens Meta)",
+      "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [680, 300]
+      "position": [
+        0,
+        340
+      ],
+      "webhookId": "b7f1e3a2-6c1d-4c55-9d1e-0a8f3e2b7c02",
+      "notes": "Responde 200 para a Meta imediatamente.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-post-0",
+              "name": "metaAppSecret",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "cfg-post-1",
+              "name": "backendUrl",
+              "value": "http://localhost:3000",
+              "type": "string"
+            },
+            {
+              "id": "cfg-post-2",
+              "name": "backendWebhookSecret",
+              "value": "troque_este_segredo_n8n_2026",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cfg-post",
+      "name": "Configuração (Envio)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        340
+      ],
+      "notes": "Edite estes valores antes de ativar o fluxo.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Valida a assinatura X-Hub-Signature-256 da Meta e decide se o evento deve ir para o sistema.\n// Requer a variável de ambiente do n8n NODE_FUNCTION_ALLOW_BUILTIN=crypto.\nconst crypto = require('crypto');\n\nconst config = $('Configuração (Envio)').first().json;\nconst webhookItem = $('Webhook WhatsApp (Mensagens Meta)').first();\nconst headers = webhookItem.json.headers || {};\nconst payload = webhookItem.json.body || {};\n\n// 1. Assinatura: calculada sobre o corpo bruto exatamente como a Meta enviou\nif (config.metaAppSecret) {\n  const bin = webhookItem.binary && webhookItem.binary.data;\n  if (!bin) {\n    return [{ json: { forward: false, reason: 'Corpo bruto indisponível (ative a opção Raw Body no webhook)' } }];\n  }\n  const rawBody = bin.id\n    ? await this.helpers.binaryToBuffer(await this.helpers.getBinaryStream(bin.id))\n    : Buffer.from(bin.data, 'base64');\n\n  const received = String(headers['x-hub-signature-256'] || '').replace(/^sha256=/, '');\n  const expected = crypto.createHmac('sha256', config.metaAppSecret).update(rawBody).digest('hex');\n  const valid = received.length === expected.length\n    && crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected));\n\n  if (!valid) {\n    return [{ json: { forward: false, reason: 'Assinatura X-Hub-Signature-256 inválida' } }];\n  }\n}\n\n// 2. Só encaminha eventos com mensagens de clientes ou ecos do vendedor (ignora status de entrega/leitura)\nconst changes = (payload.entry || []).flatMap(e => e.changes || []);\nconst relevant = changes.some(c => c.value && (\n  (c.value.messages && c.value.messages.length) ||\n  (c.value.message_echoes && c.value.message_echoes.length)\n));\n\nif (!relevant) {\n  return [{ json: { forward: false, reason: 'Evento sem mensagens (status de entrega, leitura etc.)' } }];\n}\n\nreturn [{\n  json: {\n    forward: true,\n    payload,\n    backendUrl: String(config.backendUrl || '').replace(/\\/+$/, ''),\n    webhookSecret: config.backendWebhookSecret\n  }\n}];\n"
+      },
+      "id": "code-post",
+      "name": "Validar Assinatura e Filtrar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "if-post-c",
+              "leftValue": "={{ $json.forward }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-post",
+      "name": "Encaminhar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        340
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://localhost:3000/api/webhooks/n8n/whatsapp",
+        "url": "={{ $json.backendUrl }}/api/webhooks/n8n/whatsapp",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "Content-Type",
-              "value": "application/json"
+              "name": "X-Webhook-Secret",
+              "value": "={{ $json.webhookSecret }}"
             },
             {
               "name": "X-Orchestrator",
-              "value": "n8n-workflow-v1"
+              "value": "n8n-workflow-v2"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"externalId\": \"{{ $json.externalId }}\",\n  \"senderPhone\": \"{{ $json.senderPhone }}\",\n  \"senderName\": \"{{ $json.senderName }}\",\n  \"messageType\": \"{{ $json.messageType }}\",\n  \"text\": \"{{ $json.textContent }}\",\n  \"timestamp\": \"{{ $json.timestamp }}\",\n  \"mediaId\": \"{{ $json.mediaId }}\",\n  \"mimeType\": \"{{ $json.mimeType }}\"\n}",
-        "options": {}
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 30000
+        }
       },
-      "id": "node-send-to-backend",
+      "id": "http-post",
       "name": "Enviar para Sistema de Pedidos",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [920, 200]
+      "position": [
+        880,
+        240
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={ \"status\": \"SUCCESS\", \"message\": \"Processado via n8n e integrado ao sistema de pedidos.\" }",
-        "options": {
-          "responseCode": 200
-        }
-      },
-      "id": "node-respond-meta",
-      "name": "Responder 200 OK para Meta",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [1140, 200]
+      "parameters": {},
+      "id": "noop-post",
+      "name": "Evento Ignorado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        880,
+        440
+      ]
     }
   ],
   "connections": {
-    "Webhook WhatsApp (Meta)": {
+    "Webhook WhatsApp (Verificação Meta)": {
       "main": [
         [
           {
-            "node": "Normalizar Mensagem WhatsApp",
+            "node": "Configuração (Verificação)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Normalizar Mensagem WhatsApp": {
+    "Configuração (Verificação)": {
       "main": [
         [
           {
-            "node": "Mensagem Válida?",
+            "node": "Validar Token de Verificação",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mensagem Válida?": {
+    "Validar Token de Verificação": {
+      "main": [
+        [
+          {
+            "node": "Token Válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token Válido?": {
+      "main": [
+        [
+          {
+            "node": "Responder Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 403",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook WhatsApp (Mensagens Meta)": {
+      "main": [
+        [
+          {
+            "node": "Configuração (Envio)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuração (Envio)": {
+      "main": [
+        [
+          {
+            "node": "Validar Assinatura e Filtrar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Assinatura e Filtrar": {
+      "main": [
+        [
+          {
+            "node": "Encaminhar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Encaminhar?": {
       "main": [
         [
           {
@@ -116,14 +368,10 @@
             "type": "main",
             "index": 0
           }
-        ]
-      ]
-    },
-    "Enviar para Sistema de Pedidos": {
-      "main": [
+        ],
         [
           {
-            "node": "Responder 200 OK para Meta",
+            "node": "Evento Ignorado",
             "type": "main",
             "index": 0
           }
@@ -131,8 +379,9 @@
       ]
     }
   },
-  "active": true,
   "settings": {
     "executionOrder": "v1"
-  }
+  },
+  "pinData": {},
+  "active": false
 }

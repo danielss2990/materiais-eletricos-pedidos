@@ -1,6 +1,6 @@
 /**
  * SUÍTE COMPLETA DE TESTES AUTOMATIZADOS
- * Validação rigorosa dos 16 cenários exigidos pela especificação.
+ * Validação rigorosa dos 17 cenários exigidos pela especificação.
  */
 
 const assert = require('node:assert');
@@ -51,7 +51,7 @@ async function runAllTests() {
 
   // Inicializa banco de dados com dados de seed
   seed();
-  console.log('\n--- Iniciando Validação dos 16 Cenários Obrigatórios ---\n');
+  console.log('\n--- Iniciando Validação dos 17 Cenários Obrigatórios ---\n');
 
   // 1. CADASTRO MANUAL
   await runTest(1, 'Cadastro Manual de Pedido', async () => {
@@ -343,38 +343,69 @@ async function runAllTests() {
 
   // 17. INTEGRAÇÃO ORQUESTRADA VIA N8N (WHATSAPP BUSINESS)
   await runTest(17, 'Integração Orquestrada via n8n no WhatsApp', async () => {
-    const extId = `wam_n8n_test_${Date.now()}`;
-    const testText = '2 rolos de cabo flexivel 2.5 preto e 1 disjuntor de 20 monopolar';
+    // a) Segredo compartilhado entre n8n e backend
+    const originalSecret = config.whatsapp.n8nWebhookSecret;
+    config.whatsapp.n8nWebhookSecret = 'segredo_teste_n8n';
+    assert.strictEqual(whatsappCloudApi.verifyN8nSecret('segredo_teste_n8n'), true);
+    assert.strictEqual(whatsappCloudApi.verifyN8nSecret('errado'), false);
+    assert.strictEqual(whatsappCloudApi.verifyN8nSecret(undefined), false);
+    config.whatsapp.n8nWebhookSecret = originalSecret;
 
-    // Simula a requisição enviada pelo nó HTTP Request do n8n
-    const n8nPayload = {
-      externalId: extId,
+    // b) Payload original da Meta repassado pelo n8n, com lista em várias linhas e aspas
+    const wamId = `wamid.n8n_test_${Date.now()}`;
+    const multilineText = 'Bom dia!\n- 2 rolos de cabo flexivel 2.5 "preto"\n- 1 disjuntor de 20 monopolar';
+    const metaPayload = {
+      object: 'whatsapp_business_account',
+      entry: [{
+        id: 'WABA_TEST',
+        changes: [{
+          field: 'messages',
+          value: {
+            messaging_product: 'whatsapp',
+            metadata: { phone_number_id: '123' },
+            contacts: [{ wa_id: '5511988885555', profile: { name: 'Carlos Instalador' } }],
+            messages: [{ id: wamId, from: '5511988885555', timestamp: String(Math.floor(Date.now() / 1000)), type: 'text', text: { body: multilineText } }]
+          }
+        }]
+      }]
+    };
+
+    const metaResult = await whatsappCloudApi.processN8nPayload(metaPayload);
+    assert.strictEqual(metaResult.body.status, 'PROCESSED');
+    const created = metaResult.body.events[0];
+    assert.strictEqual(created.action, 'ORDER_CREATED');
+    const order = db.get('SELECT * FROM orders WHERE id = ?', [created.order_id]);
+    assert.strictEqual(order.entry_method, 'AUTOMATIC_WHATSAPP');
+    assert.strictEqual(order.original_text, multilineText, 'Texto com quebras de linha e aspas deve chegar intacto');
+
+    // c) Reenvio do mesmo evento pela Meta não duplica o pedido
+    const dupResult = await whatsappCloudApi.processN8nPayload(metaPayload);
+    assert.strictEqual(dupResult.body.events[0].action, 'DUPLICATE_IGNORED');
+
+    // d) Eco do vendedor (Coexistência) é registrado sem criar pedido
+    const echoId = `wamid.echo_test_${Date.now()}`;
+    const echoResult = await whatsappCloudApi.processN8nPayload({
+      entry: [{ changes: [{ field: 'smb_message_echoes', value: { message_echoes: [{ id: echoId, to: '5511988885555', type: 'text', text: { body: 'Separado, Carlos!' } }] } }] }]
+    });
+    assert.strictEqual(echoResult.body.events[0].action, 'ECHO_RECORDED');
+
+    // e) Formato simplificado (usado pelo simulador do painel)
+    const simpleResult = await whatsappCloudApi.processN8nPayload({
+      externalId: `wam_n8n_simple_${Date.now()}`,
       senderPhone: '+55 11 98888-5555',
       senderName: 'Carlos Instalador (via n8n)',
       messageType: 'TEXT',
-      text: testText,
-      timestamp: String(Math.floor(Date.now() / 1000))
-    };
+      text: '2 rolos de cabo flexivel 2.5 preto e 1 disjuntor de 20 monopolar'
+    });
+    assert.strictEqual(simpleResult.body.status, 'SUCCESS');
+    const simpleOrder = db.get('SELECT * FROM orders WHERE id = ?', [simpleResult.body.order_id]);
+    assert.ok(simpleOrder.review_notes.includes('n8n'));
 
-    // Testa lógica do endpoint n8n diretamente no banco/fila
-    const messageDbId = `msg_n8n_${Date.now()}`;
-    const orderId = `ord_n8n_${Date.now()}`;
+    // f) Payload incompleto é rejeitado com 400
+    const invalid = await whatsappCloudApi.processN8nPayload({ text: 'sem telefone' });
+    assert.strictEqual(invalid.httpStatus, 400);
 
-    db.run(`
-      INSERT INTO messages (id, channel_id, external_id, sender_id, sender_name, direction, content_type, raw_payload, raw_text)
-      VALUES (?, 'chan_wa_coex', ?, ?, ?, 'INBOUND', 'TEXT', ?, ?)
-    `, [messageDbId, extId, n8nPayload.senderPhone, n8nPayload.senderName, JSON.stringify(n8nPayload), testText]);
-
-    db.run(`
-      INSERT INTO orders (id, order_code, channel_id, entry_method, status, original_text, review_notes)
-      VALUES (?, 'PED-N8N-001', 'chan_wa_coex', 'AUTOMATIC_WHATSAPP', 'PROCESSING', ?, 'Capturado via n8n Orchestrator')
-    `, [orderId, testText]);
-
-    const order = db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
-    assert.strictEqual(order.entry_method, 'AUTOMATIC_WHATSAPP');
-    assert.ok(order.review_notes.includes('n8n'));
-
-    const items = parseElectricalOrderText(testText);
+    const items = parseElectricalOrderText(multilineText);
     assert.strictEqual(items.length, 2, 'Deve extrair os itens da mensagem do n8n');
   });
 
